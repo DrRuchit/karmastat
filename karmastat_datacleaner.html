@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Data Cleaning Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-light: #3b82f6;
+            --primary-dark: #1e40af;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --border: #e2e8f0;
+            --text: #1e293b;
+            --text-light: #64748b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            background: var(--background);
+            color: var(--text);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 3rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary);
+            background: var(--background);
+        }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin: 0.5rem;
+        }
+
+        .btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .sheet-selector {
+            margin: 1rem 0;
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            background: var(--surface);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin: 1rem 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 600px;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th {
+            background: var(--background);
+            font-weight: 600;
+        }
+
+        .status {
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin: 0.5rem 0;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status.success {
+            background: #f0fdf4;
+            color: #166534;
+            border: 1px solid var(--success);
+        }
+
+        .status.error {
+            background: #fef2f2;
+            color: #991b1b;
+            border: 1px solid var(--error);
+        }
+
+        .status.warning {
+            background: #fffbeb;
+            color: #92400e;
+            border: 1px solid var(--warning);
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            margin: 2rem 0;
+            position: relative;
+        }
+
+        .step {
+            flex: 1;
+            text-align: center;
+            padding: 1rem;
+            background: var(--background);
+            border: 1px solid var(--border);
+            margin: 0 0.5rem;
+            border-radius: 6px;
+            position: relative;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            opacity: 1;
+            background: var(--primary-light);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .chart-container {
+            height: 300px;
+            margin: 1rem 0;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .container {
+                padding: 1rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .progress-steps {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Advanced Data Cleaning Tool</h1>
+            <p>Upload your Excel file for intelligent data cleaning and analysis</p>
+        </div>
+
+        <div class="progress-steps">
+            <div class="step active" id="step1">Upload</div>
+            <div class="step" id="step2">Analyze</div>
+            <div class="step" id="step3">Clean</div>
+            <div class="step" id="step4">Download</div>
+        </div>
+
+        <div class="section" id="uploadSection">
+            <div class="upload-area" id="uploadArea">
+                <h3>Drag & Drop Excel File</h3>
+                <p>or</p>
+                <button class="btn" onclick="document.getElementById('fileInput').click()">
+                    Select File
+                </button>
+                <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none">
+                <p>Supported formats: .xlsx, .xls</p>
+            </div>
+        </div>
+
+        <div class="section" id="sheetSection" style="display: none;">
+            <h3>Select Sheet</h3>
+            <select id="sheetSelect" class="sheet-selector"></select>
+        </div>
+
+        <div class="section" id="analysisSection" style="display: none;">
+            <h3>Data Analysis</h3>
+            <div id="columnAnalysis" class="grid"></div>
+            <div class="table-container" id="previewTable"></div>
+        </div>
+
+        <div class="section" id="cleaningSection" style="display: none;">
+            <h3>Cleaning Options</h3>
+            <div class="grid">
+                <div class="card">
+                    <h4>Missing Values</h4>
+                    <p>Handle missing data using smart imputation</p>
+                    <button class="btn" onclick="handleMissingValues()">Fix Missing Values</button>
+                </div>
+                <div class="card">
+                    <h4>Outliers</h4>
+                    <p>Detect and handle statistical outliers</p>
+                    <button class="btn" onclick="handleOutliers()">Handle Outliers</button>
+                </div>
+                <div class="card">
+                    <h4>Standardize</h4>
+                    <p>Normalize data formats</p>
+                    <button class="btn" onclick="standardizeFormats()">Standardize</button>
+                </div>
+                <div class="card">
+                    <h4>Duplicates</h4>
+                    <p>Remove duplicate entries</p>
+                    <button class="btn" onclick="removeDuplicates()">Remove Duplicates</button>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 2rem;">
+                <button class="btn" onclick="cleanAll()">Clean All Data</button>
+                <button class="btn" onclick="downloadData()">Download Cleaned Data</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let workbook = null;
+        let currentSheet = null;
+        let currentData = null;
+        let columnAnalysis = {};
+
+        // File handling setup
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+            document.body.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            uploadArea.classList.add('dragover');
+        }
+
+        function unhighlight(e) {
+            uploadArea.classList.remove('dragover');
+        }
+
+        // Handle dropped files
+        uploadArea.addEventListener('drop', handleDrop, false);
+        fileInput.addEventListener('change', handleFileSelect, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles(files);
+        }
+
+        function handleFileSelect(e) {
+            const files = e.target.files;
+            handleFiles(files);
+        }
+        function handleFiles(files) {
+            const file = files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    workbook = XLSX.read(data, { type: 'array' });
+                    showStatus('File loaded successfully', 'success');
+                    setupSheetSelector();
+                    updateProgress(2);
+                } catch (error) {
+                    showStatus('Error reading file: ' + error.message, 'error');
+                }
+            };
+            reader.onerror = function() {
+                showStatus('Error reading file', 'error');
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function setupSheetSelector() {
+            const selector = document.getElementById('sheetSelect');
+            selector.innerHTML = '';
+            
+            workbook.SheetNames.forEach(name => {
+                const option = document.createElement('option');
+                option.value = name;
+                option.textContent = name;
+                selector.appendChild(option);
+            });
+
+            document.getElementById('sheetSection').style.display = 'block';
+            selector.addEventListener('change', loadSheet);
+            loadSheet(); // Load first sheet automatically
+        }
+
+        function loadSheet() {
+            try {
+                const sheetName = document.getElementById('sheetSelect').value;
+                currentSheet = workbook.Sheets[sheetName];
+                currentData = XLSX.utils.sheet_to_json(currentSheet, { 
+                    header: 1,
+                    raw: false,
+                    dateNF: 'yyyy-mm-dd',
+                    defval: ''
+                });
+
+                if (!currentData || currentData.length < 2) {
+                    showStatus('Sheet is empty or contains insufficient data', 'error');
+                    return;
+                }
+
+                analyzeData();
+                showDataPreview();
+                document.getElementById('analysisSection').style.display = 'block';
+                document.getElementById('cleaningSection').style.display = 'block';
+                updateProgress(3);
+            } catch (error) {
+                showStatus('Error loading sheet: ' + error.message, 'error');
+            }
+        }
+
+        function analyzeData() {
+            const headers = currentData[0];
+            const data = currentData.slice(1);
+            columnAnalysis = {};
+            
+            const container = document.getElementById('columnAnalysis');
+            container.innerHTML = '';
+
+            headers.forEach((header, index) => {
+                if (!header) return;
+
+                const values = data.map(row => row[index])
+                    .filter(val => val !== null && val !== undefined && val !== '');
+
+                const analysis = {
+                    type: detectDataType(values),
+                    totalValues: data.length,
+                    validValues: values.length,
+                    missingValues: data.length - values.length,
+                    uniqueValues: new Set(values).size
+                };
+
+                if (analysis.type === 'numeric') {
+                    const numbers = values.map(v => Number(v)).filter(v => !isNaN(v));
+                    analysis.mean = calculateMean(numbers);
+                    analysis.median = calculateMedian(numbers);
+                    analysis.stdDev = calculateStdDev(numbers, analysis.mean);
+                    analysis.min = Math.min(...numbers);
+                    analysis.max = Math.max(...numbers);
+                    const { q1, q3 } = calculateQuartiles(numbers);
+                    analysis.q1 = q1;
+                    analysis.q3 = q3;
+                    analysis.iqr = q3 - q1;
+                }
+
+                columnAnalysis[header] = analysis;
+                createColumnCard(header, analysis);
+            });
+        }
+
+        function showDataPreview() {
+            const container = document.getElementById('previewTable');
+            if (!currentData || !currentData.length) return;
+
+            let html = '<table><thead><tr>';
+            currentData[0].forEach(header => {
+                html += `<th>${header || 'Unnamed'}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+
+            // Show first 5 rows
+            for (let i = 1; i < Math.min(6, currentData.length); i++) {
+                html += '<tr>';
+                currentData[i].forEach(cell => {
+                    html += `<td>${formatCell(cell)}</td>`;
+                });
+                html += '</tr>';
+            }
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        }
+
+        function handleMissingValues() {
+            if (!currentData || !currentData.length) return;
+            
+            const headers = currentData[0];
+            const data = currentData.slice(1);
+            let replacements = 0;
+
+            headers.forEach((header, colIndex) => {
+                const analysis = columnAnalysis[header];
+                if (!analysis) return;
+
+                data.forEach((row, rowIndex) => {
+                    if (!row[colIndex] || row[colIndex] === '') {
+                        if (analysis.type === 'numeric') {
+                            row[colIndex] = analysis.median.toFixed(2);
+                            replacements++;
+                        } else {
+                            const mode = calculateMode(data.map(r => r[colIndex]));
+                            row[colIndex] = mode;
+                            replacements++;
+                        }
+                    }
+                });
+            });
+
+            currentData = [headers, ...data];
+            showDataPreview();
+            showStatus(`Replaced ${replacements} missing values`, 'success');
+            analyzeData();
+        }
+
+        function handleOutliers() {
+            if (!currentData || !currentData.length) return;
+            
+            const headers = currentData[0];
+            const data = currentData.slice(1);
+            let outlierCount = 0;
+
+            headers.forEach((header, colIndex) => {
+                const analysis = columnAnalysis[header];
+                if (analysis.type !== 'numeric') return;
+
+                const lowerBound = analysis.q1 - 1.5 * analysis.iqr;
+                const upperBound = analysis.q3 + 1.5 * analysis.iqr;
+
+                data.forEach((row, rowIndex) => {
+                    const value = Number(row[colIndex]);
+                    if (value < lowerBound || value > upperBound) {
+                        row[colIndex] = analysis.median.toFixed(2);
+                        outlierCount++;
+                    }
+                });
+            });
+
+            currentData = [headers, ...data];
+            showDataPreview();
+            showStatus(`Handled ${outlierCount} outliers`, 'success');
+            analyzeData();
+        }
+
+        function standardizeFormats() {
+            if (!currentData || !currentData.length) return;
+            
+            const headers = currentData[0];
+            const data = currentData.slice(1);
+            let standardizations = 0;
+
+            headers.forEach((header, colIndex) => {
+                const analysis = columnAnalysis[header];
+                
+                data.forEach(row => {
+                    if (row[colIndex]) {
+                        if (analysis.type === 'numeric') {
+                            const num = Number(row[colIndex]);
+                            if (!isNaN(num)) {
+                                row[colIndex] = num.toFixed(2);
+                                standardizations++;
+                            }
+                        } else if (analysis.type === 'date') {
+                            try {
+                                const date = new Date(row[colIndex]);
+                                if (date instanceof Date && !isNaN(date)) {
+                                    row[colIndex] = date.toISOString().split('T')[0];
+                                    standardizations++;
+                                }
+                            } catch (e) {}
+                        } else {
+                            row[colIndex] = String(row[colIndex]).trim();
+                            standardizations++;
+                        }
+                    }
+                });
+            });
+
+            currentData = [headers, ...data];
+            showDataPreview();
+            showStatus(`Standardized ${standardizations} values`, 'success');
+            analyzeData();
+        }
+
+        function removeDuplicates() {
+            if (!currentData || !currentData.length) return;
+            
+            const headers = currentData[0];
+            const data = currentData.slice(1);
+            const uniqueRows = new Map();
+            let duplicates = 0;
+
+            data.forEach(row => {
+                const key = JSON.stringify(row);
+                if (!uniqueRows.has(key)) {
+                    uniqueRows.set(key, row);
+                } else {
+                    duplicates++;
+                }
+            });
+
+            currentData = [headers, ...Array.from(uniqueRows.values())];
+            showDataPreview();
+            showStatus(`Removed ${duplicates} duplicate rows`, 'success');
+            analyzeData();
+        }
+
+        function cleanAll() {
+            handleMissingValues();
+            handleOutliers();
+            standardizeFormats();
+            removeDuplicates();
+            updateProgress(4);
+        }
+
+        // Utility Functions
+        function detectDataType(values) {
+            if (!values.length) return 'unknown';
+            
+            let numericCount = 0;
+            let dateCount = 0;
+            
+            const sample = Math.min(values.length, 100);
+            for (let i = 0; i < sample; i++) {
+                const value = values[i];
+                if (!isNaN(value) && value !== '') numericCount++;
+                if (isValidDate(value)) dateCount++;
+            }
+
+            const threshold = sample * 0.8;
+            if (numericCount >= threshold) return 'numeric';
+            if (dateCount >= threshold) return 'date';
+            return 'text';
+        }
+
+        function createColumnCard(header, analysis) {
+            const container = document.getElementById('columnAnalysis');
+            const card = document.createElement('div');
+            card.className = 'card';
+            
+            let content = `
+                <h4>${header}</h4>
+                <p>Type: ${analysis.type}</p>
+                <p>Total Values: ${analysis.totalValues}</p>
+                <p>Missing Values: ${analysis.missingValues}</p>
+                <p>Unique Values: ${analysis.uniqueValues}</p>
+            `;
+
+            if (analysis.type === 'numeric') {
+                content += `
+                    <p>Mean: ${analysis.mean.toFixed(2)}</p>
+                    <p>Median: ${analysis.median.toFixed(2)}</p>
+                    <p>Std Dev: ${analysis.stdDev.toFixed(2)}</p>
+                    <p>Range: ${analysis.min} - ${analysis.max}</p>
+                `;
+            }
+
+            card.innerHTML = content;
+            container.appendChild(card);
+        }
+
+        function downloadData() {
+            if (!currentData || !currentData.length) return;
+
+            const ws = XLSX.utils.aoa_to_sheet(currentData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Cleaned_Data');
+            
+            const fileName = `cleaned_data_${new Date().toISOString().slice(0,10)}.xlsx`;
+            XLSX.writeFile(wb, fileName);
+            showStatus('Data downloaded successfully', 'success');
+        }
+
+        function showStatus(message, type) {
+            const container = document.createElement('div');
+            container.className = `status ${type}`;
+            container.textContent = message;
+            
+            const header = document.querySelector('.header');
+            header.insertAdjacentElement('afterend', container);
+            
+            setTimeout(() => container.remove(), 5000);
+        }
+
+        function updateProgress(step) {
+            document.querySelectorAll('.step').forEach((el, index) => {
+                el.classList.toggle('active', index + 1 <= step);
+            });
+        }
+
+        // Statistical Functions
+        function calculateMean(numbers) {
+            return numbers.reduce((a, b) => a + b, 0) / numbers.length;
+        }
+
+        function calculateMedian(numbers) {
+            const sorted = numbers.sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+        }
+
+        function calculateStdDev(numbers, mean) {
+            const squareDiffs = numbers.map(value => Math.pow(value - mean, 2));
+            return Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / numbers.length);
+        }
+
+        function calculateQuartiles(numbers) {
+            const sorted = numbers.sort((a, b) => a - b);
+            const mid = Math.floor(sorted.length / 2);
+            
+            const lowerHalf = sorted.slice(0, mid);
+            const upperHalf = sorted.slice(mid + (sorted.length % 2));
+            
+            return {
+                q1: calculateMedian(lowerHalf),
+                q3: calculateMedian(upperHalf)
+            };
+        }
+
+        function calculateMode(values) {
+            const counts = new Map();
+            let maxCount = 0;
+            let mode = values[0];
+
+            for (const value of values) {
+                const count = (counts.get(value) || 0) + 1;
+                counts.set(value, count);
+                if (count > maxCount) {
+                    maxCount = count;
+                    mode = value;
+                }
+            }
+
+            return mode;
+        }
+
+        function formatCell(value) {
+            if (value === null || value === undefined || value === '') {
+                return '<span style="color: #999">Empty</span>';
+            }
+            return String(value);
+        }
+
+        function isValidDate(value) {
+            const date = new Date(value);
+            return date instanceof Date && !isNaN(date);
+        }
+    </script>
+</body>
+</html>
